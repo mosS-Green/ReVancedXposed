@@ -7,13 +7,14 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.widget.Toast
+import android.util.Log
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedHelpers
 import io.github.chsbuffer.revancedxposed.patch
 import kotlin.concurrent.thread
 
@@ -23,19 +24,30 @@ const val PREF_LASTFM_ENABLED = "revanced_lastfm_enabled"
 
 val LastFmSettingsPatch = patch(name = "Last.fm Scrobbling") {
     
-    ::preferenceFragmentFingerprint.hookMethod(object : XC_MethodHook() {
-        override fun afterHookedMethod(param: MethodHookParam) {
-            val fragment = param.thisObject as PreferenceFragmentCompat
-            val context = fragment.context ?: return
-            val screen = fragment.preferenceScreen ?: return
-            
-            // Check if we are in the main settings or general settings to avoid injecting everywhere
-            // This is a naive check; you might want to check the preference key of the screen
-            if (screen.findPreference<Preference>("revanced_lastfm_category") != null) return
+    // Direct hook using XposedHelpers to avoid fingerprint match failures
+    try {
+        XposedHelpers.findAndHookMethod(
+            "androidx.preference.PreferenceFragmentCompat",
+            lpparam.classLoader,
+            "onCreatePreferences",
+            android.os.Bundle::class.java,
+            String::class.java,
+            object : XC_MethodHook() {
+                override fun afterHookedMethod(param: MethodHookParam) {
+                    val fragment = param.thisObject as PreferenceFragmentCompat
+                    val context = fragment.context ?: return
+                    val screen = fragment.preferenceScreen ?: return
+                    
+                    if (screen.findPreference<Preference>("revanced_lastfm_category") != null) return
 
-            addLastFmSettings(context, screen, fragment)
-        }
-    })
+                    addLastFmSettings(context, screen, fragment)
+                }
+            }
+        )
+    } catch (e: Throwable) {
+        // Log error but don't fail the patch loading significantly
+        Log.e("ReVancedLastFm", "Failed to hook PreferenceFragmentCompat", e)
+    }
 }
 
 fun addLastFmSettings(context: Context, screen: PreferenceScreen, fragment: PreferenceFragmentCompat) {
@@ -72,7 +84,6 @@ fun addLastFmSettings(context: Context, screen: PreferenceScreen, fragment: Pref
                 prefs.edit().remove(PREF_LASTFM_SESSION).apply()
                 title = "Login to Last.fm"
                 summary = "Click to authorize via Browser"
-                Toast.makeText(context, "Logged out of Last.fm", Toast.LENGTH_SHORT).show()
             } else {
                 // Login Logic
                 initiateAuthFlow(context, prefs, this)
@@ -88,9 +99,7 @@ fun initiateAuthFlow(context: Context, prefs: SharedPreferences, authPref: Prefe
         // 1. Get Token from API
         val token = LastFmApi.getToken()
         if (token == null) {
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, "Failed to connect to Last.fm", Toast.LENGTH_SHORT).show()
-            }
+            Log.e("ReVancedLastFm", "Failed to get token from Last.fm")
             return@thread
         }
 
@@ -114,9 +123,8 @@ fun initiateAuthFlow(context: Context, prefs: SharedPreferences, authPref: Prefe
                                 prefs.edit().putString(PREF_LASTFM_SESSION, sessionKey).apply()
                                 authPref.title = "Logged in"
                                 authPref.summary = "Click to logout"
-                                Toast.makeText(context, "Last.fm Login Successful!", Toast.LENGTH_LONG).show()
                             } else {
-                                Toast.makeText(context, "Authorization failed or timed out.", Toast.LENGTH_LONG).show()
+                                Log.e("ReVancedLastFm", "Authorization failed or timed out.")
                             }
                         }
                     }

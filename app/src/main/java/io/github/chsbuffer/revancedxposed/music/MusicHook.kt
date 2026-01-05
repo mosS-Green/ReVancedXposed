@@ -10,6 +10,8 @@ import io.github.chsbuffer.revancedxposed.music.misc.debugging.EnableDebugging
 import io.github.chsbuffer.revancedxposed.music.misc.privacy.SanitizeSharingLinks
 import io.github.chsbuffer.revancedxposed.music.misc.settings.SettingsHook
 import io.github.chsbuffer.revancedxposed.shared.misc.CheckRecycleBitmapMediaSession
+import io.github.chsbuffer.revancedxposed.youtube.lastfm.LastFmSettingsPatch
+import io.github.chsbuffer.revancedxposed.youtube.lastfm.ScrobblePatch
 
 val YTMusicPatches = arrayOf(
     ExtensionResourceHook,
@@ -21,5 +23,7 @@ val YTMusicPatches = arrayOf(
     CheckRecycleBitmapMediaSession,
     EnableDebugging,
     SanitizeSharingLinks,
+    LastFmSettingsPatch,
+    ScrobblePatch,
     SettingsHook
 )
