@@ -42,6 +42,7 @@
 - Disable resuming Shorts on startup
 - Disable video codecs
 - Disable auto captions
+- Last.fm scrobbling
 
 ### Spotify (Moved to Dedicated Repository)
 
