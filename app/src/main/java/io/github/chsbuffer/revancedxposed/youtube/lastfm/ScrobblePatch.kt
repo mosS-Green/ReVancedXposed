@@ -4,51 +4,38 @@ import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedHelpers
 import io.github.chsbuffer.revancedxposed.patch
 
 val ScrobblePatch = patch(name = "Last.fm Scrobbler Core") {
     
     // Hook setMetadata to detect track changes
-    findMethodDirect {
-        findMethod {
-            matcher {
-                // Hooking Android Framework class loaded in the App process
-                declaredClass { name = "android.media.session.MediaSession" }
-                name = "setMetadata"
-                paramTypes("android.media.MediaMetadata")
+    XposedHelpers.findAndHookMethod(
+        "android.media.session.MediaSession",
+        lpparam.classLoader,
+        "setMetadata",
+        "android.media.MediaMetadata",
+        object : XC_MethodHook() {
+            override fun afterHookedMethod(param: MethodHookParam) {
+                val context = android.app.AndroidAppHelper.currentApplication() ?: return
+                val metadata = param.args[0] as? MediaMetadata
+                ScrobbleManager.onMetadataChanged(context, metadata)
             }
         }
-    }.hookMethod(object : XC_MethodHook() {
-        override fun afterHookedMethod(param: MethodHookParam) {
-            val session = param.thisObject as MediaSession
-            // Context is usually needed to access SharedPreferences
-            // MediaSession doesn't expose context easily via public API, 
-            // but we can try to get it from the app context or reflection if needed.
-            // However, hooking 'android.app.Application' to get global context is a prerequisite usually.
-            
-            // For this snippet, assuming we can get context from the Xposed environment or the session controller's context
-            // A safer bet in Xposed is AndroidAppHelper.currentApplication()
-            val context = android.app.AndroidAppHelper.currentApplication() ?: return
-            
-            val metadata = param.args[0] as? MediaMetadata
-            ScrobbleManager.onMetadataChanged(context, metadata)
-        }
-    })
+    )
 
     // Hook setPlaybackState to detect Pause/Play
-    findMethodDirect {
-        findMethod {
-            matcher {
-                declaredClass { name = "android.media.session.MediaSession" }
-                name = "setPlaybackState"
-                paramTypes("android.media.session.PlaybackState")
+    XposedHelpers.findAndHookMethod(
+        "android.media.session.MediaSession",
+        lpparam.classLoader,
+        "setPlaybackState",
+        "android.media.session.PlaybackState",
+        object : XC_MethodHook() {
+            override fun afterHookedMethod(param: MethodHookParam) {
+                val context = android.app.AndroidAppHelper.currentApplication() ?: return
+                val state = param.args[0] as? PlaybackState
+                ScrobbleManager.onPlaybackStateChanged(context, state)
             }
         }
-    }.hookMethod(object : XC_MethodHook() {
-        override fun afterHookedMethod(param: MethodHookParam) {
-            val context = android.app.AndroidAppHelper.currentApplication() ?: return
-            val state = param.args[0] as? PlaybackState
-            ScrobbleManager.onPlaybackStateChanged(context, state)
-        }
-    })
+    )
 }

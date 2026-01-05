@@ -119,6 +119,7 @@ dependencies {
     debugImplementation(kotlin("reflect"))
     compileOnly(libs.xposed)
     compileOnly(project(":stub"))
+    implementation("androidx.preference:preference-ktx:1.2.1")
 }
 
 abstract class GenerateStringsTask @Inject constructor(
